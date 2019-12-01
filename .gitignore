@@ -1,0 +1,8 @@
+/board/*.b#1
+/board/*.s#1
+/board/*.s#2
+/board/*.s#3
+/lm7001_si470_bridge.X/build
+/lm7001_si470_bridge.X/dist
+/lm7001_si470_bridge.X/debug
+/lm7001_si470_bridge.X/nbproject/private
