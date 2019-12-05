@@ -6,3 +6,8 @@
 /lm7001_si470_bridge.X/dist
 /lm7001_si470_bridge.X/debug
 /lm7001_si470_bridge.X/nbproject/private
+/board/*.b#2
+/board/*.b#3
+/board/*.pro
+/board/*.s#4
+/board/*.s#5
