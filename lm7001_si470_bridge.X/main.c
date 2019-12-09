@@ -1,12 +1,9 @@
-// PIC 16F628A
-// FOSC 4MHz (internal)
-
 // CONFIG
 #pragma config FOSC = INTOSCIO  // Oscillator Selection bits (INTOSC oscillator: I/O function on RA6/OSC2/CLKOUT pin, I/O function on RA7/OSC1/CLKIN)
-#pragma config WDTE = ON        // Watchdog Timer Enable bit (WDT enabled)
+#pragma config WDTE = OFF        // Watchdog Timer Enable bit (WDT enabled)
 #pragma config PWRTE = ON       // Power-up Timer Enable bit (PWRT enabled)
 #pragma config MCLRE = ON       // RA5/MCLR/VPP Pin Function Select bit (RA5/MCLR/VPP pin function is MCLR)
-#pragma config BOREN = ON       // Brown-out Detect Enable bit (BOD enabled)
+#pragma config BOREN = OFF      // *** 3.3V! Brown-out Detect Enable bit (BOD enabled)
 #pragma config LVP = OFF        // Low-Voltage Programming Enable bit (RB4/PGM pin has digital I/O function, HV on MCLR must be used for programming)
 #pragma config CPD = OFF        // Data EE Memory Code Protection bit (Data memory code protection off)
 #pragma config CP = OFF         // Flash Program Memory Code Protection bit (Code protection off)
@@ -16,216 +13,57 @@
 
 #include <stdint.h>
 #include <xc.h>
-
-// RB1/RB2 (RX/TX) for future expansions and for debug
-// RB4/RB6/RB7 for programming interface
-
-#define DEBUG_TX_TRIS TRISBbits.TRISB2
-#define DEBUG_TX_PORT PORTBbits.RB2
-
-/**
- * Si4703 interface
- */
-// Reset pin
-#define SI_RES_TRIS TRISAbits.TRISA0
-#define SI_RES_PORT PORTAbits.RA0
-// SCK
-#define SI_SCK_TRIS TRISAbits.TRISA1
-#define SI_SCK_PORT PORTAbits.RA1
-// SDA
-#define SI_SDA_TRIS TRISAbits.TRISA2
-#define SI_SDA_PORT PORTAbits.RA2
-
-/**
- * LM7001 driver interface from Pioneer MCU
- */
-// CE on RB5 for interrupt on change
-#define MCU_CE_TRIS TRISBbits.TRISB5
-#define MCU_CE_PORT PORTBbits.RB5
-// Clock on RB0 for interrupt on edge rising
-#define MCU_CLK_TRIS TRISBbits.TRISB0
-#define MCU_CLK_PORT PORTBbits.RB0
-
-#define MCU_DAT_TRIS TRISAbits.TRISA3
-#define MCU_DAT_PORT PORTAbits.RA3
-
-// MONO is active high
-#define MCU_MONO_TRIS TRISAbits.TRISA6
-#define MCU_MONO_PORT PORTAbits.RA6
-
-// TUNE is active low
-#define MCU_TUNE_TRIS TRISBbits.TRISB1
-#define MCU_TUNE_PORT PORTBbits.RB1
-
-// STEREO is unknown
-#define MCU_STEREO_TRIS TRISBbits.TRISB3
-#define MCU_STEREO_PORT PORTBbits.RB3
+#include "hw.h"
+#include "si_fm_radio.h"
 
 // When triggered to 1, data received from LM7001
-static bit _lmCeDeasserted;
-static uint8_t _lmDataCount;
-static uint24_t _lmData;  // LSB are received first
-static bit _forceMono;
-static bit _seeking; // seek still in progress
+static bit s_lmCeDeasserted;
+static uint8_t s_lmDataCount;
 
 typedef union {
+    uint24_t data;
     struct {
-        bit ENABLE: 1;
-        bit _RES: 5;
-        bit DISABLE: 1;
-        bit _RES2: 1;
-        bit SEEK: 1;
-        bit SEEKUP: 1;
-        bit SKMODE: 1;
-        bit RDSM: 1;
-        bit _RES3: 1;
-        bit MONO: 1;
-        bit DMUTE: 1;
-        bit DSMUTE: 1;           
+        unsigned FREQ_LO: 8;
+        unsigned FREQ_HI: 6; // 14 bit: steps of ref freqs, base 0
+        unsigned TEST: 2; // always 0
+        unsigned BAND_SELECTORS: 4; // regulates GPIOs
+        unsigned REF_FREQ: 3;  // the base step frequency: 0: 100kHz, 4: 50kHz
+        unsigned DIVIDER: 1; // 1: FM, 0: AM
     };
-    uint16_t data;
-} SI_POWER_T;
-static SI_POWER_T si_powerCfg;
+} LM_DATA;
+static LM_DATA s_lmData;  // LSB are received first
 
-typedef enum {
-    DEBUG_VALID_CODE = 1,
-    SEEK_COMPLETE = 2,
-    DEBUG_INVALID_CODE = 3,
-    DEBUG_RESET = 4
-} DEBUG_CODES;
-
-typedef union {
-    struct {
-        uint16_t CHANNEL: 10;
-        uint8_t RES: 5;
-        bit TUNE: 1;
-    };
-    uint16_t data;
-} SI_CHANNEL_T;
-static SI_CHANNEL_T si_channel;
-
-typedef union {
-    struct {
-        uint8_t RSSI: 8;
-        bit ST: 1;
-        uint8_t BLEAR: 2;
-        bit RDSS: 1;
-        bit AFCRL: 1;
-        bit SF_BL: 1;
-        bit STC: 1;
-        bit RDSR: 1;
-    };
-    uint16_t data;
-} SI_STATUS_T;
-
-static void debug(DEBUG_CODES debugCode) {
+void debug(DEBUG_CODES debugCode) {
     for (uint8_t i = 0; i < debugCode; i++) {
         DEBUG_TX_PORT = 1;
         DEBUG_TX_PORT = 0;
     }
 }
 
-static void i2c_begin() {
-}
-
-static void i2c_write_16(uint16_t data) {
-}
-
-static uint16_t i2c_read_16() {
-}
-
-static void i2c_write_end() {
-}
-
-static void i2c_read_end() {
-}
-
-static void initSi() {
-    wait(200ms);
-
-    si_powerCfg.data = 0;
-    si_channel.TUNE = 0;
-    si_channel.CHANNEL = 0; // 87.5MHz
-    
-    i2c_begin();
-    i2c_write_16(si_powerCfg);
-    i2c_write_16(si_channel); // channel, tune disabled
-    i2c_write_16(0x0080); // System configuration 1: AGC ON, deemphasis Europe, interrupt disabled, RDS disabled
-    i2c_write_16(0x001F); // System configuration 2: 0db volume, Europe band (100 kHz), min RSSI
-    i2c_write_16(0x0000); // System configuration 3: most stops in seeks, standard volume
-    i2c_write_16(0x3c04 | 0x8000); // see datahseet
-    i2c_write_end();
-    
-    // Wait before initializing other registries
-    wait(150ms);
-
-    // Start muted and DISABLED
-    si_powerCfg.ENABLE = 1;
-    i2c_begin();
-    i2c_write_16(si_powerCfg);
-    i2c_write_end();
-}
-
-static void updateSiMono() {
-    // Update mono status
-    si_powerCfg.MONO = _forceMono;
-    // Only write register 2 (the first)
-    i2c_begin();
-    i2c_write_16(si_powerCfg);
-    i2c_write_end();
-}
-
-static void updateSiFreq() {
-    // Reset the STC bit
-    si_channel.TUNE = 0;
-    i2c_begin();
-    i2c_write_16(si_powerCfg);
-    i2c_write_16(si_channel); 
-    i2c_write_end();
-
-    // Now tune
-    si_channel.TUNE = 1;
-    i2c_begin();
-    i2c_write_16(si_powerCfg);
-    i2c_write_16(si_channel); 
-    i2c_write_end();
-    
-    _seeking = 1;
-}
-
 // Decode data received from Pioneer MCU. Not time critical, Pioneer
 // waits > 100ms between an update to the next
-static void decodeLmData(uint24_t data) {    
-    // TODO
-}
-
-// Read SI status from i2c and update PIC ports
-static void pollSiStatus() {
-    i2c_begin();
-    SI_STATUS_T status = i2c_read_16();
-    i2c_read_end();
-    
-    if (status.STC && _seeking) {
-        // Seek complete
-        _seeking = 0;
-        debug(SEEK_COMPLETE);
+static void decodeLmData() {    
+    if (s_lmData.DIVIDER != 1 || s_lmData.TEST != 0 || s_lmData.REF_FREQ != 4) {
+        // Invalid (AM or invalid data)
+        si_fm_mute(1);
+    } else {
+        si_fm_mute(0);
+        uint16_t freq = (s_lmData.FREQ_LO | (s_lmData.FREQ_HI << 8)) - 1750; // Base is 87.5 
+        si_fm_tune(freq);
     }
-    
-    MCU_TUNE_PORT = status.STC && status.AFCRL;
-    MCU_STEREO_PORT = status.ST;
 }
 
 static void __interrupt interruptVector() {    
     // If CE is low, deassert everything and process data, if count == 24 is valid
     if (!MCU_CE_PORT) {
-        _lmCeDeasserted = 1;
+        s_lmCeDeasserted = 1;
     } else if (INTCONbits.INTF) {
         // else INTF. Sample data
-        _lmData >>= 1;
+        s_lmData.data >>= 1;
         if (MCU_DAT_PORT) {
-            _lmData |= 0x800000;
+            s_lmData.data |= 0x800000;
         }
-        _lmDataCount++;
+        s_lmDataCount++;
     }
 
     // Reset interrupt flags
@@ -233,15 +71,9 @@ static void __interrupt interruptVector() {
     INTCONbits.INTF = 0;
 }
 
-static void getNewFreq() {
-    si_channel.CHANNEL++;
-    // 108.0 - 87.5 = 205 steps of 100kHz
-    if (si_channel.CHANNEL > 205) {
-        si_channel.CHANNEL = 0;
-    }
-}
-
+// For debug only
 static uint8_t s_intCounter = 0;
+static uint8_t s_tune = 0;
 
 void main(void) {
     // Assign prescaler to TMR0. 1:256
@@ -281,12 +113,12 @@ void main(void) {
     SI_RES_PORT = 1;    
     
     // Init SI module
-    initSi();
+    si_fm_init();
     
     // Now setup LM port
     // Wait until CE is deasserted
-    _lmCeDeasserted = 0;
-    _lmDataCount = 0;
+    s_lmCeDeasserted = 0;
+    s_lmDataCount = 0;
     while (MCU_CE_PORT);
 
     debug(DEBUG_RESET);
@@ -297,9 +129,7 @@ void main(void) {
     // == End of Init
     
     // Load defaults (muted)
-    updateSiFreq();
-    _forceMono = !!MCU_MONO_PORT;
-    updateSiMono();
+    si_fm_tune(s_tune = 0);
 
     // Loop
     while (1) {
@@ -311,26 +141,24 @@ void main(void) {
             if (s_intCounter > 16) {
                 s_intCounter = 0;
                 // Set freq.
-                getNewFreq();
-                // 1 pulse for OK received
-                debug(DEBUG_VALID_CODE);
-                updateSiFreq();
+                s_tune++;
+                if (s_tune > 208) s_tune = 0;
+                si_fm_tune(s_tune);
             }
         }
 
         // Data packet received?
-        if (_lmCeDeasserted) {
-            _lmCeDeasserted = 0;
-            int ok = _lmDataCount == 24;
-            _lmDataCount = 0;
+        if (s_lmCeDeasserted) {
+            s_lmCeDeasserted = 0;
+            int ok = s_lmDataCount == 24;
+            s_lmDataCount = 0;
             if (ok) {
                 // 1 pulse for OK received
                 debug(DEBUG_VALID_CODE);
                 
                 // Data valid. Decode it and send it to SI, decouple it from the buffer
                 // so next packets can be received
-                decodeLmData(_lmData);
-                updateSiFreq();
+                decodeLmData();
             } else {
                 // 2 pulses for size not valid
                 debug(DEBUG_INVALID_CODE);
@@ -338,12 +166,11 @@ void main(void) {
         }
 
         // Propagate MONO command
-        if (MCU_MONO_PORT != _forceMono) {
-            _forceMono = MCU_MONO_PORT;
-            updateSiMono();
-        }
+        si_fm_forceMono(MCU_MONO_PORT);
         
         // Poll status and update output STEREO and SIGNAL lines
-        pollSiStatus();
+        SI_FM_STATUS status = si_fm_status();
+        MCU_TUNE_PORT = status.TUNED;
+        MCU_STEREO_PORT = status.STEREO;
     }
 }
