@@ -73,7 +73,7 @@ static void __interrupt interruptVector() {
 
 // For debug only
 static uint8_t s_intCounter = 0;
-static uint8_t s_tune = 0;
+static uint16_t s_tune = 0;
 
 void main(void) {
     // Assign prescaler to TMR0. 1:256
@@ -85,13 +85,9 @@ void main(void) {
     // Disable comparators to use full porta
     CMCON = 7;
     
-    // Reset si4702
-    SI_SCK_TRIS = SI_SDA_TRIS = SI_RES_TRIS = 0;
     DEBUG_TX_TRIS = 0;
-
-    SI_RES_PORT = 0;
+    NOP();
     DEBUG_TX_PORT = 0;
-    SI_SCK_PORT = SI_SDA_PORT = 1; 
         
     // Init LM7001 interface 
     MCU_CE_TRIS = MCU_CLK_TRIS = MCU_DAT_TRIS = 1;
@@ -109,9 +105,6 @@ void main(void) {
     // Enable pull-up to avoid spurious RB change interrupts
     OPTION_REGbits.nRBPU = 0;
             
-    // Reset with GPIO1 high = I2C
-    SI_RES_PORT = 1;    
-    
     // Init SI module
     si_fm_init();
     
@@ -119,17 +112,12 @@ void main(void) {
     // Wait until CE is deasserted
     s_lmCeDeasserted = 0;
     s_lmDataCount = 0;
-    while (MCU_CE_PORT);
+    //while (MCU_CE_PORT);
 
     debug(DEBUG_RESET);
     
     // Start receiving data
     INTCONbits.GIE = 1;
-
-    // == End of Init
-    
-    // Load defaults (muted)
-    si_fm_tune(s_tune = 0);
 
     // Loop
     while (1) {
@@ -142,7 +130,7 @@ void main(void) {
                 s_intCounter = 0;
                 // Set freq.
                 s_tune++;
-                if (s_tune > 208) s_tune = 0;
+                if (s_tune > 410) s_tune = 0;
                 si_fm_tune(s_tune);
             }
         }
@@ -169,8 +157,10 @@ void main(void) {
         si_fm_forceMono(MCU_MONO_PORT);
         
         // Poll status and update output STEREO and SIGNAL lines
-        SI_FM_STATUS status = si_fm_status();
-        MCU_TUNE_PORT = status.TUNED;
-        MCU_STEREO_PORT = status.STEREO;
+        si_fm_pollStatus();
+        // Update the output line as soon as possible for the Pioneer MCU seek algo
+        MCU_TUNE_PORT = si_fm_isTuned() ? 1 : 0;
+        MCU_STEREO_PORT = si_fm_isStereo() ? 1 : 0;
+        si_fm_postStatus();
     }
 }
