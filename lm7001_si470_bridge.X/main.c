@@ -33,7 +33,7 @@ typedef union {
 } LM_DATA;
 static LM_DATA s_lmData;  // LSB are received first
 
-void debug(DEBUG_CODES debugCode) {
+static void debug(DEBUG_CODES debugCode) {
     for (uint8_t i = 0; i < debugCode; i++) {
         DEBUG_TX_PORT = 1;
         DEBUG_TX_PORT = 0;
@@ -48,7 +48,7 @@ static void decodeLmData() {
         si_fm_mute(1);
     } else {
         si_fm_mute(0);
-        uint16_t freq = (s_lmData.FREQ_LO | (s_lmData.FREQ_HI << 8)) - 1750; // Base is 87.5 
+        uint16_t freq = (s_lmData.FREQ_LO | (s_lmData.FREQ_HI << 8)) - (875 * 2); // Base is 87.5 
         si_fm_tune(freq);
     }
 }
@@ -122,37 +122,47 @@ void main(void) {
     // Loop
     while (1) {
         CLRWDT();
+        uint8_t dataValid = 0;
         
         if (INTCONbits.T0IF) {
             INTCONbits.T0IF = 0;
             s_intCounter++;
             if (s_intCounter > 16) {
                 s_intCounter = 0;
+
                 // Set freq.
                 s_tune++;
                 if (s_tune > 410) s_tune = 0;
-                si_fm_tune(s_tune);
+
+                uint16_t lm7001freq = s_tune + (875 * 2);
+                s_lmData.DIVIDER = 1;
+                s_lmData.FREQ_LO = lm7001freq & 0xff;
+                s_lmData.FREQ_HI = (lm7001freq >> 8);
+                s_lmData.TEST = 0;
+                s_lmData.REF_FREQ = 4;
+                
+                dataValid = 1;
             }
         }
 
         // Data packet received?
         if (s_lmCeDeasserted) {
             s_lmCeDeasserted = 0;
-            int ok = s_lmDataCount == 24;
+            dataValid = s_lmDataCount == 24;
             s_lmDataCount = 0;
-            if (ok) {
-                // 1 pulse for OK received
-                debug(DEBUG_VALID_CODE);
-                
-                // Data valid. Decode it and send it to SI, decouple it from the buffer
-                // so next packets can be received
-                decodeLmData();
-            } else {
+            if (!dataValid) {
                 // 2 pulses for size not valid
-                debug(DEBUG_INVALID_CODE);
+                //debug(DEBUG_INVALID_CODE);
             }
         }
 
+        if (dataValid) {
+            DEBUG_TX_PORT = 1;
+            // Data valid. Decode it and send it to SI, decouple it from the buffer
+            // so next packets can be received
+            decodeLmData();
+        }
+        
         // Propagate MONO command
         si_fm_forceMono(MCU_MONO_PORT);
         

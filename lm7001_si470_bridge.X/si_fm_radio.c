@@ -163,16 +163,15 @@ void si_fm_postStatus() {
     if (si_status.STC && si_channel.TUNE) {
         // Seek complete, reset the TUNE flag
         si_channel.TUNE = 0;
-        debug(SEEK_COMPLETE);
+        DEBUG_TX_PORT = 0;
 
         i2c_start(SI_WRITE_ADDRESS);
         i2c_write_16(si_powerCfg.data);
         i2c_write_16(si_channel.data); 
         i2c_stop();
+        // Wait for the STC flag 
+        do {
+            si_fm_pollStatus();
+        } while (si_status.STC);
     }
-    
-    // Wait for the STC flag 
-    do {
-        si_fm_pollStatus();
-    } while (si_status.STC);
 }

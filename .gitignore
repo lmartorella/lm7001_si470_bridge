@@ -11,3 +11,5 @@
 /board/*.pro
 /board/*.s#4
 /board/*.s#5
+/board/*.b##
+/board/*.s##
