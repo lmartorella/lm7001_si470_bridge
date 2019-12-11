@@ -13,3 +13,5 @@
 /board/*.s#5
 /board/*.b##
 /board/*.s##
+/board/*.b#4
+/board/*.s#6
