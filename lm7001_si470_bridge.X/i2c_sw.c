@@ -29,7 +29,8 @@ static uint8_t i2c_rcvbyte(I2C_ACK_ENUM ack) {
     CLRWDT();
     uint8_t ret = 0;
     SI_SDA_TRIS = 1;
-    for (int i = 0; i < 8; i++, ret <<= 1)  {
+    for (int i = 0; i < 8; i++)  {
+        ret <<= 1;
         if (SI_SDA_PORT) ret |= 1;
         NOP();
         SI_SCK_PORT = 1;
