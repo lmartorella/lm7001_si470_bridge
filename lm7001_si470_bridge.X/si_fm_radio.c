@@ -103,11 +103,11 @@ void si_fm_forceMono(uint8_t forceMono) {
 }
 
 void si_fm_mute(uint8_t mute) {
-    uint8_t isMute = si_powerCfg.DMUTE;
+    uint8_t isMute = !si_powerCfg.DMUTE;
     if (isMute != mute) {
         // Update mute status
-        si_powerCfg.DMUTE = mute;
-        si_powerCfg.DSMUTE = mute;
+        si_powerCfg.DMUTE = !mute;
+        si_powerCfg.DSMUTE = !mute;
         
         // Only write register 2 (the first)
         i2c_start(SI_WRITE_ADDRESS);

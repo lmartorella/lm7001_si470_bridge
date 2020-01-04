@@ -64,9 +64,7 @@ static void decodeLmData() {
         // Invalid (AM or invalid data)
         si_fm_mute(1);
         debug(DEBUG_INVALID_CODE);
-    } else {
-        si_fm_mute(0);
-        
+    } else {      
         //debug8(s_lmData.FREQ_LO);
         //debug8(s_lmData.FREQ_HI);
         
@@ -74,6 +72,7 @@ static void decodeLmData() {
         if (freq > 410) { // (108 - 87.5 Mhz) / 50 kHz
             debug(DEBUG_INVALID_CODE);
         } else {
+            // This will unmute
             si_fm_tune(freq);
             debug(DEBUG_VALID_CODE);
         }
