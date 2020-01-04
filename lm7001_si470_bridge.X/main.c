@@ -33,10 +33,25 @@ typedef union {
 } LM_DATA;
 static LM_DATA s_lmData;  // LSB are received first
 
-static void debug(DEBUG_CODES debugCode) {
+void debug(DEBUG_CODES debugCode) {
     for (uint8_t i = 0; i < debugCode; i++) {
         DEBUG_TX_PORT = 1;
         DEBUG_TX_PORT = 0;
+    }
+}
+
+static void debug8(uint8_t data) {
+    for (uint8_t i = 0; i < 8; i++) {
+        DEBUG_TX_PORT = 1;
+        if (data & 0x80) {
+            NOP();
+            NOP();
+            NOP();
+            NOP();
+            NOP();
+        }
+        DEBUG_TX_PORT = 0;
+        data <<= 1;
     }
 }
 
@@ -46,21 +61,33 @@ static void decodeLmData() {
     if (s_lmData.DIVIDER != 1 || s_lmData.TEST != 0 || s_lmData.REF_FREQ != 4) {
         // Invalid (AM or invalid data)
         si_fm_mute(1);
+        debug(DEBUG_INVALID_CODE);
     } else {
         si_fm_mute(0);
-        uint16_t freq = (s_lmData.FREQ_LO | (s_lmData.FREQ_HI << 8)) - (875 * 2); // Base is 87.5 
-        si_fm_tune(freq);
+        
+        //debug8(s_lmData.FREQ_LO);
+        //debug8(s_lmData.FREQ_HI);
+        
+        uint16_t freq = (s_lmData.FREQ_LO | (s_lmData.FREQ_HI << 8)) - (875 * 2) - (107 * 2); // Base is 87.5 , subtract IF too
+        if (freq > 410) { // (108 - 87.5 Mhz) / 50 kHz
+            debug(DEBUG_INVALID_CODE);
+        } else {
+            si_fm_tune(freq);
+            debug(DEBUG_VALID_CODE);
+        }
     }
 }
 
+static bit s_dat;
 static void __interrupt interruptVector() {    
+    s_dat = MCU_DAT_PORT;
     // If CE is low, deassert everything and process data, if count == 24 is valid
     if (!MCU_CE_PORT) {
         s_lmCeDeasserted = 1;
     } else if (INTCONbits.INTF) {
         // else INTF. Sample data
         s_lmData.data >>= 1;
-        if (MCU_DAT_PORT) {
+        if (s_dat) {
             s_lmData.data |= 0x800000;
         }
         s_lmDataCount++;
@@ -70,10 +97,6 @@ static void __interrupt interruptVector() {
     INTCONbits.RBIF = 0;
     INTCONbits.INTF = 0;
 }
-
-// For debug only
-static uint8_t s_intCounter = 0;
-static uint16_t s_tune = 0;
 
 void main(void) {
     // Assign prescaler to TMR0. 1:256
@@ -103,7 +126,7 @@ void main(void) {
     // Data sampled on rising edge
     OPTION_REGbits.INTEDG = 1;
     // Enable pull-up to avoid spurious RB change interrupts
-    OPTION_REGbits.nRBPU = 0;
+    OPTION_REGbits.nRBPU = 1;
             
     // Init SI module
     si_fm_init();
@@ -112,7 +135,7 @@ void main(void) {
     // Wait until CE is deasserted
     s_lmCeDeasserted = 0;
     s_lmDataCount = 0;
-    //while (MCU_CE_PORT);
+    while (MCU_CE_PORT);
 
     debug(DEBUG_RESET);
     
@@ -124,40 +147,15 @@ void main(void) {
         CLRWDT();
         uint8_t dataValid = 0;
         
-        if (INTCONbits.T0IF) {
-            INTCONbits.T0IF = 0;
-            s_intCounter++;
-            if (s_intCounter > 16) {
-                s_intCounter = 0;
-
-                // Set freq.
-                s_tune++;
-                if (s_tune > 410) s_tune = 0;
-
-                uint16_t lm7001freq = s_tune + (875 * 2);
-                s_lmData.DIVIDER = 1;
-                s_lmData.FREQ_LO = lm7001freq & 0xff;
-                s_lmData.FREQ_HI = (lm7001freq >> 8);
-                s_lmData.TEST = 0;
-                s_lmData.REF_FREQ = 4;
-                
-                dataValid = 1;
-            }
-        }
-
         // Data packet received?
         if (s_lmCeDeasserted) {
             s_lmCeDeasserted = 0;
             dataValid = s_lmDataCount == 24;
             s_lmDataCount = 0;
-            if (!dataValid) {
-                // 2 pulses for size not valid
-                //debug(DEBUG_INVALID_CODE);
-            }
         }
 
         if (dataValid) {
-            DEBUG_TX_PORT = 1;
+            //DEBUG_TX_PORT = 1;
             // Data valid. Decode it and send it to SI, decouple it from the buffer
             // so next packets can be received
             decodeLmData();
@@ -169,7 +167,7 @@ void main(void) {
         // Poll status and update output STEREO and SIGNAL lines
         si_fm_pollStatus();
         // Update the output line as soon as possible for the Pioneer MCU seek algo
-        MCU_TUNE_PORT = si_fm_isTuned() ? 1 : 0;
+        MCU_TUNE_PORT = si_fm_isTuned() ? 0 : 1;
         MCU_STEREO_PORT = si_fm_isStereo() ? 1 : 0;
         si_fm_postStatus();
     }

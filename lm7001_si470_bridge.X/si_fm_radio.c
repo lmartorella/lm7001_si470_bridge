@@ -163,7 +163,7 @@ void si_fm_postStatus() {
     if (si_status.STC && si_channel.TUNE) {
         // Seek complete, reset the TUNE flag
         si_channel.TUNE = 0;
-        DEBUG_TX_PORT = 0;
+        //DEBUG_TX_PORT = 0;
 
         i2c_start(SI_WRITE_ADDRESS);
         i2c_write_16(si_powerCfg.data);
