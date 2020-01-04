@@ -47,11 +47,9 @@
 #define MCU_STEREO_PORT PORTBbits.RB3
 
 typedef enum {
-    DEBUG_INTF = 1,
-            
-    DEBUG_VALID_CODE = 3,
-    DEBUG_INVALID_CODE = 4,
-    DEBUG_RESET = 5
+    DEBUG_VALID_CODE = 1,
+    DEBUG_INVALID_CODE = 2,
+    DEBUG_RESET = 3
 }
 DEBUG_CODES;
 void debug(DEBUG_CODES debugCode);

@@ -61,10 +61,9 @@ void si_fm_init() {
     SI_RES_PORT = 0;
 
     // Reset with GPIO1 high = I2C
-    __delay_ms(1);
-    SI_RES_PORT = 1;    
-
     __delay_ms(100);
+    SI_RES_PORT = 1;    
+    __delay_ms(1000);
 
     si_powerCfg.data = 0; // muted and not ENABLED
     si_channel.TUNE = 0;
@@ -75,16 +74,14 @@ void si_fm_init() {
     i2c_write_16(si_powerCfg.data);
     i2c_write_16(si_channel.data); // channel, tune disabled
     i2c_write_16(0x0080); // System configuration 1: AGC ON, deemphasis Europe, interrupt disabled, RDS disabled
-    i2c_write_16(0x002F); // System configuration 2: 0db volume, fine band (50 kHz), min RSSI
+    i2c_write_16(0x7F2F); // System configuration 2: 0db volume, fine band (50 kHz), max RSSI threshold
     i2c_write_16(0x0000); // System configuration 3: most stops in seeks, standard volume
     //i2c_write_16(0x3c04 | 0x8000, I2C_ACK_STOP); // see datahseet
     i2c_write_16(0x8100); // the above doesn't work!
     i2c_stop();
     
     // Wait before initializing other registries
-    CLRWDT();
-    __delay_ms(150);
-    CLRWDT();
+    __delay_ms(300);
 
     // Start muted and ENABLED now
     si_powerCfg.ENABLE = 1;

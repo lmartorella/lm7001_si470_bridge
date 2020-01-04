@@ -1,6 +1,6 @@
 // CONFIG
 #pragma config FOSC = INTOSCIO  // Oscillator Selection bits (INTOSC oscillator: I/O function on RA6/OSC2/CLKOUT pin, I/O function on RA7/OSC1/CLKIN)
-#pragma config WDTE = OFF        // Watchdog Timer Enable bit (WDT enabled)
+#pragma config WDTE = ON        // Watchdog Timer Enable bit (WDT enabled)
 #pragma config PWRTE = ON       // Power-up Timer Enable bit (PWRT enabled)
 #pragma config MCLRE = ON       // RA5/MCLR/VPP Pin Function Select bit (RA5/MCLR/VPP pin function is MCLR)
 #pragma config BOREN = OFF      // *** 3.3V! Brown-out Detect Enable bit (BOD enabled)
@@ -40,6 +40,7 @@ void debug(DEBUG_CODES debugCode) {
     }
 }
 
+/*
 static void debug8(uint8_t data) {
     for (uint8_t i = 0; i < 8; i++) {
         DEBUG_TX_PORT = 1;
@@ -54,6 +55,7 @@ static void debug8(uint8_t data) {
         data <<= 1;
     }
 }
+*/
 
 // Decode data received from Pioneer MCU. Not time critical, Pioneer
 // waits > 100ms between an update to the next
@@ -99,11 +101,13 @@ static void __interrupt interruptVector() {
 }
 
 void main(void) {
-    // Assign prescaler to TMR0. 1:256
-    OPTION_REGbits.PSA = 0;
+    CLRWDT();
+    // Assign prescaler to WDT. 1:256
+    OPTION_REGbits.PSA = 1;
     OPTION_REGbits.PS = 7;
-    // TMR0 internal
     OPTION_REGbits.T0CS = 0;
+    CLRWDT();
+    // Wdt now up to 2.3s
     
     // Disable comparators to use full porta
     CMCON = 7;
