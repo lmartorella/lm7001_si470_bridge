@@ -81,6 +81,7 @@ static void decodeLmData() {
 
 static bit s_dat;
 static void __interrupt interruptVector() {    
+    // Sample it here to be closer to the clock raising edge
     s_dat = MCU_DAT_PORT;
     // If CE is low, deassert everything and process data, if count == 24 is valid
     if (!MCU_CE_PORT) {

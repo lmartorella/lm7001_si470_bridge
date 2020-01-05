@@ -9902,27 +9902,27 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <attribute name="VALUE" x="60.96" y="7.62" size="1.778" layer="96" rot="R90"/>
 </instance>
 <instance part="CE" gate="G$1" x="129.54" y="25.4" smashed="yes" rot="R270">
-<attribute name="NAME" x="130.81" y="26.67" size="1.778" layer="95" rot="R270"/>
+<attribute name="NAME" x="130.81" y="24.13" size="1.778" layer="95"/>
 <attribute name="TP_SIGNAL_NAME" x="128.27" y="24.13" size="1.778" layer="97" rot="R270"/>
 </instance>
 <instance part="CLK" gate="G$1" x="129.54" y="22.86" smashed="yes" rot="R270">
-<attribute name="NAME" x="130.81" y="24.13" size="1.778" layer="95" rot="R270"/>
+<attribute name="NAME" x="130.81" y="21.59" size="1.778" layer="95"/>
 <attribute name="TP_SIGNAL_NAME" x="128.27" y="21.59" size="1.778" layer="97" rot="R270"/>
 </instance>
 <instance part="DAT" gate="G$1" x="129.54" y="20.32" smashed="yes" rot="R270">
-<attribute name="NAME" x="130.81" y="21.59" size="1.778" layer="95" rot="R270"/>
+<attribute name="NAME" x="130.81" y="19.05" size="1.778" layer="95"/>
 <attribute name="TP_SIGNAL_NAME" x="128.27" y="19.05" size="1.778" layer="97" rot="R270"/>
 </instance>
 <instance part="MONO" gate="G$1" x="129.54" y="17.78" smashed="yes" rot="R270">
-<attribute name="NAME" x="130.81" y="19.05" size="1.778" layer="95" rot="R270"/>
+<attribute name="NAME" x="130.81" y="16.51" size="1.778" layer="95"/>
 <attribute name="TP_SIGNAL_NAME" x="128.27" y="16.51" size="1.778" layer="97" rot="R270"/>
 </instance>
 <instance part="TUNE" gate="G$1" x="129.54" y="15.24" smashed="yes" rot="R270">
-<attribute name="NAME" x="130.81" y="16.51" size="1.778" layer="95" rot="R270"/>
+<attribute name="NAME" x="130.81" y="13.97" size="1.778" layer="95"/>
 <attribute name="TP_SIGNAL_NAME" x="128.27" y="13.97" size="1.778" layer="97" rot="R270"/>
 </instance>
 <instance part="STEREO" gate="G$1" x="129.54" y="12.7" smashed="yes" rot="R270">
-<attribute name="NAME" x="130.81" y="13.97" size="1.778" layer="95" rot="R270"/>
+<attribute name="NAME" x="130.81" y="11.43" size="1.778" layer="95"/>
 <attribute name="TP_SIGNAL_NAME" x="128.27" y="11.43" size="1.778" layer="97" rot="R270"/>
 </instance>
 <instance part="TP8" gate="G$1" x="-22.86" y="88.9" smashed="yes">
@@ -10111,7 +10111,7 @@ new: Attribute TP_SIGNAL_NAME&lt;br&gt;
 <segment>
 <pinref part="R2" gate="G$1" pin="2"/>
 <wire x1="127" y1="25.4" x2="121.92" y2="25.4" width="0.1524" layer="91"/>
-<label x="134.62" y="25.4" size="1.778" layer="95"/>
+<label x="129.54" y="33.02" size="1.778" layer="95"/>
 <pinref part="CE" gate="G$1" pin="TP"/>
 </segment>
 </net>
